@@ -9,19 +9,23 @@
 
 
 class SharedVariable{
-	enum{SHARED_BOOL, SHARED_INT, SHARED_FLOAT, SHARED_STRING};
+	enum{SHARED_BOOL, SHARED_INT, SHARED_FLOAT, SHARED_STRING, SHARED_RGBA};
 public:
 	
 	int * valueInt;
 	float * valueFloat;
 	bool * valueBool;
 	string * valueString;
+	ofRGBA * valueColor;
+
 	
 	int oldInt;
 	float oldFloat;
 	bool oldBool;
 	string oldString;
 	bool allowChange;
+	ofRGBA oldColor;
+
 	string id;
 	
 	int type;	
@@ -31,6 +35,7 @@ public:
 		type = SHARED_INT;
 		allowChange = _allowChange;
 		id = name;
+		oldInt = *val;
 	//	cout<<"Created int "<<name<<endl;
 	}
 	SharedVariable(float * val, string name,bool _allowChange= true){
@@ -38,60 +43,99 @@ public:
 		type = SHARED_FLOAT;
 		allowChange = _allowChange;
 		id = name;
+		oldFloat = *val;
 	}
 	SharedVariable(string * val, string name, bool _allowChange= true){
 		valueString= val;
 		type = SHARED_STRING;
 		allowChange = _allowChange;
 		id = name;
+		oldString = *val;
 	}
 	SharedVariable(bool * val, string name,bool _allowChange= true){
 		valueBool= val;
 		type = SHARED_BOOL;
 		allowChange = _allowChange;
 		id = name;
+		oldBool = *val;
 	//	cout<<"Created bool "<<name<<" "<<*val<<endl;
+	}	
+	SharedVariable(ofRGBA * val, string name,bool _allowChange= true){
+		valueColor = val;
+		type = SHARED_RGBA;
+		allowChange = _allowChange;
+		id = name;
+		oldColor = *val;
+		//	cout<<"Created bool "<<name<<" "<<*val<<endl;
 	}
 	
-	void update(ofxOscSender * sender, string toolName){
-	//	cout<<toolName<<endl;
+	void sendValue(ofxOscSender * sender, string toolName){
+		ofxOscMessage m;
 		switch (type) {
 			case SHARED_BOOL:
-				if(oldBool != *valueBool){
-					ofxOscMessage m;
 					m.setAddress( ("/"+toolName+"/"+id).c_str());
 					m.addIntArg(*valueBool);
 					sender->sendMessage( m );
-			//		cout<<"shared variable send osc "<< m.getAddress()<<endl;
+				break;
+			case SHARED_FLOAT:
+					m.setAddress( ("/"+toolName+"/"+id).c_str());
+					m.addFloatArg(*valueFloat);
+					sender->sendMessage( m );
+				break;				
+			case SHARED_STRING:
+					m.setAddress( ("/"+toolName+"/"+id).c_str());
+					m.addStringArg((*valueString).c_str());
+					sender->sendMessage( m );
+				break;
+			case SHARED_INT:
+					m.setAddress( ("/"+toolName+"/"+id).c_str());
+					m.addIntArg(*valueBool);
+					sender->sendMessage( m );
+				break;
+			case SHARED_RGBA:
+				m.setAddress( ("/"+toolName+"/"+id).c_str());
+				m.addFloatArg(valueColor->r);
+				m.addFloatArg(valueColor->g);
+				m.addFloatArg(valueColor->b);
+				m.addFloatArg(valueColor->a);
+				sender->sendMessage( m );
+				break;
+			default:
+				break;
+		}		
+	}
+	
+	void update(ofxOscSender * sender, string toolName){
+		switch (type) {
+			case SHARED_BOOL:
+				if(oldBool != *valueBool){
+					sendValue(sender, toolName);
 				}
 				oldBool = *valueBool;
 				break;
 			case SHARED_FLOAT:
 				if(oldFloat != *valueFloat){
-					ofxOscMessage m;
-					m.setAddress( ("/"+toolName+"/"+id).c_str());
-					m.addFloatArg(*valueFloat);
-					sender->sendMessage( m );
+					sendValue(sender, toolName);
 				}
 				oldFloat = *valueFloat;
 				break;				
 			case SHARED_STRING:
 				if(oldString != *valueString){
-					ofxOscMessage m;
-					m.setAddress( ("/"+toolName+"/"+id).c_str());
-					m.addStringArg((*valueString).c_str());
-					sender->sendMessage( m );
+					sendValue(sender, toolName);
 				}
 				oldString = *valueString;
 				break;
 			case SHARED_INT:
 				if(oldInt != *valueInt){
-					ofxOscMessage m;
-					m.setAddress( ("/"+toolName+"/"+id).c_str());
-					m.addIntArg(*valueBool);
-					sender->sendMessage( m );
+					sendValue(sender, toolName);
 				}
 				oldInt = *valueInt;
+				break;
+			case SHARED_RGBA:
+				if(oldColor.r != valueColor->r || oldColor.g || valueColor->g || oldColor.b != valueColor->b || oldColor.a != valueColor->a  ){
+					sendValue(sender, toolName);
+				}
+				oldColor = *valueColor;
 				break;
 			default:
 				break;
@@ -101,7 +145,7 @@ public:
 	
 	void handleOsc(ofxOscMessage *m, string toolName){					   
 		if ( strcmp( m->getAddress(), ("/"+toolName+"/"+id).c_str() ) == 0 ){
-		//	cout<<"shared variable recieved osc "<< m->getAddress()<<endl;
+			cout<<"shared variable "<<id<<" recieved osc "<< m->getAddress()<<endl;
 			if(type == SHARED_BOOL){
 				*valueBool = m->getArgAsInt32(0);
 				oldBool = m->getArgAsInt32(0);
@@ -114,7 +158,15 @@ public:
 			} else if(type == SHARED_FLOAT){
 				*valueFloat = m->getArgAsFloat(0);
 				oldFloat = m->getArgAsFloat(0);
+			}else if(type == SHARED_RGBA){
+				valueColor->r = m->getArgAsFloat(0);
+				valueColor->g = m->getArgAsFloat(1);
+				valueColor->b = m->getArgAsFloat(2);
+				valueColor->a = m->getArgAsFloat(3);
+				cout<< m->getArgAsFloat(0)<<" "<< m->getArgAsFloat(1)<<" "<< m->getArgAsFloat(2)<<endl;
+				oldColor = *valueColor;
 			}
+			
 		}
 	}
 	
